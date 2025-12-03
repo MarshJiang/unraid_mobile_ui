@@ -7,6 +7,7 @@ import 'package:unmobile/l10n/app_localizations.dart';
 import 'package:unmobile/notifiers/auth_state.dart';
 import 'package:unmobile/global/queries.dart';
 import 'package:adaptive_action_sheet/adaptive_action_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DockersPage extends StatefulWidget {
   const DockersPage({Key? key}) : super(key: key);
@@ -23,7 +24,7 @@ class _MyDockersPageState extends State<DockersPage> {
   void initState() {
     super.initState();
     _state = Provider.of<AuthState>(context, listen: false);
-    if(_state!.client != null) {
+    if (_state!.client != null) {
       _state!.client!.resetStore();
       getAllDockers();
     }
@@ -34,6 +35,25 @@ class _MyDockersPageState extends State<DockersPage> {
       document: gql(Queries.getDockers),
       queryRequestTimeout: const Duration(seconds: 60),
     ));
+  }
+
+  /// Parse docker webui label like 'http://[IP]:[PORT:8080]' into
+  /// 'http://actual.ip:8080'. Falls back to original string on unexpected
+  /// formats.
+  String? _parseWebuiUrl(String? webui) {
+    if (webui == null) return null;
+
+    final ip = _state!.storage.getString('ip');
+    if (ip == null || ip.isEmpty) return null;
+
+    // Replace [IP] placeholder
+    var result = webui.replaceFirst('[IP]', ip);
+
+    // Replace [PORT:xxxx] placeholder -> xxxx
+    final portRegex = RegExp(r"\[PORT:(\d+)\]");
+    result = result.replaceAllMapped(portRegex, (m) => m.group(1) ?? '');
+
+    return result;
   }
 
   @override
@@ -64,6 +84,9 @@ class _MyDockersPageState extends State<DockersPage> {
                   Map docker = result.data!['docker']['containers'][index];
                   bool running = docker['state'] == 'RUNNING';
                   String name = docker['names'][0];
+                  String? webui = docker['labels'][
+                      'net.unraid.docker.webui']; // e.g. http://[IP]:[PORT:8080]
+                  String? webuiUrl = _parseWebuiUrl(webui);
 
                   if (name.startsWith('/')) {
                     name = name.substring(1);
@@ -74,20 +97,50 @@ class _MyDockersPageState extends State<DockersPage> {
                         showAdaptiveActionSheet(
                           context: context,
                           title: Text(name),
-                          actions: <BottomSheetAction>[
-                            BottomSheetAction(
-                              title: running
-                                  ? Text(AppLocalizations.of(context)!.stop)
-                                  : Text(AppLocalizations.of(context)!.start),
-                              onPressed: (_) async {
-                                Navigator.of(context).pop();
-                                docker = await startStopDocker(running, docker);
-                                setState(() {});
-                              },
-                            )
-                          ],
-                          cancelAction:
-                              CancelAction(title: Text(AppLocalizations.of(context)!.cancel)),
+                          actions: webui == null
+                              ? <BottomSheetAction>[
+                                  BottomSheetAction(
+                                    title: running
+                                        ? Text(
+                                            AppLocalizations.of(context)!.stop)
+                                        : Text(AppLocalizations.of(context)!
+                                            .start),
+                                    onPressed: (_) async {
+                                      Navigator.of(context).pop();
+                                      docker = await startStopDocker(
+                                          running, docker);
+                                      setState(() {});
+                                    },
+                                  )
+                                ]
+                              : <BottomSheetAction>[
+                                  BottomSheetAction(
+                                      title: Text(AppLocalizations.of(context)!
+                                          .openWebui),
+                                      onPressed: (_) async {
+                                        Navigator.of(context).pop();
+                                        launchUrl(
+                                          Uri.parse(webuiUrl!),
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      }),
+                                  BottomSheetAction(
+                                    title: running
+                                        ? Text(
+                                            AppLocalizations.of(context)!.stop)
+                                        : Text(AppLocalizations.of(context)!
+                                            .start),
+                                    onPressed: (_) async {
+                                      Navigator.of(context).pop();
+                                      docker = await startStopDocker(
+                                          running, docker);
+                                      setState(() {});
+                                    },
+                                  ),
+                                ],
+                          cancelAction: CancelAction(
+                              title:
+                                  Text(AppLocalizations.of(context)!.cancel)),
                         );
                       },
                       leading:
@@ -104,23 +157,26 @@ class _MyDockersPageState extends State<DockersPage> {
                                 )
                               : const Icon(Icons.image_not_supported),
                       title: Text(name),
-                        subtitle: Row(children: [
+                      subtitle: Row(children: [
                         Icon(
-                          running
-                            ? FontAwesomeIcons.play
-                            : FontAwesomeIcons.stop,
-                          color: running ? Colors.green : Colors.red,
-                          size: 16),
+                            running
+                                ? FontAwesomeIcons.play
+                                : FontAwesomeIcons.stop,
+                            color: running ? Colors.green : Colors.red,
+                            size: 16),
                         const SizedBox(width: 4),
                         Text(docker['state'] == 'RUNNING'
-                          ? AppLocalizations.of(context)!.running
-                          : AppLocalizations.of(context)!.stopped),
+                            ? AppLocalizations.of(context)!.running
+                            : AppLocalizations.of(context)!.stopped),
                         const SizedBox(width: 10),
-                        if (docker['status'] != null && docker['status'].toString().contains('healthy')) ...[
-                            const Text('- healthy'),
-                            const SizedBox(width: 4),
-                            const Icon(FontAwesomeIcons.heartPulse, size: 12),
-                          ]
+                        if (docker['status'] != null &&
+                            docker['status']
+                                .toString()
+                                .contains('healthy')) ...[
+                          const Text('- healthy'),
+                          const SizedBox(width: 4),
+                          const Icon(FontAwesomeIcons.heartPulse, size: 12),
+                        ]
                       ]));
                 });
           } else {

@@ -52,6 +52,7 @@
   "stopped": "已停止",
   "multiserverSettingsTitle": "多服务器设置",
   "addServer": "添加服务器",
+  "openWebui": "打开 WebUI",
   "@freeSpace": {
     "placeholders": {
       "size": {

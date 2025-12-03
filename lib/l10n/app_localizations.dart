@@ -410,6 +410,12 @@ abstract class AppLocalizations {
   /// **'Add Server'**
   String get addServer;
 
+  /// No description provided for @openWebui.
+  ///
+  /// In en, this message translates to:
+  /// **'Open WebUI'**
+  String get openWebui;
+
   /// No description provided for @errorWithMessage.
   ///
   /// In en, this message translates to:

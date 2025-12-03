@@ -167,6 +167,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addServer => '添加服务器';
 
   @override
+  String get openWebui => '打开 WebUI';
+
+  @override
   String errorWithMessage(String message) {
     return '错误：$message';
   }

@@ -167,6 +167,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addServer => 'Add Server';
 
   @override
+  String get openWebui => 'Open WebUI';
+
+  @override
   String errorWithMessage(String message) {
     return 'Error: $message';
   }

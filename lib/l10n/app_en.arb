@@ -52,6 +52,7 @@
   "stopped": "Stopped",
   "multiserverSettingsTitle": "Multiserver Settings",
   "addServer": "Add Server",
+  "openWebui": "Open WebUI",
   "@freeSpace": {
     "placeholders": {
       "size": {
